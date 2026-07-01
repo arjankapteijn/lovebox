@@ -14,6 +14,14 @@ gevoeligs in git.
 
 ---
 
+## Voorbeeld
+
+| Dagelijkse weergave | Feestmodus op de verjaardag |
+|---|---|
+| ![Weer + kledingadvies + aankomende datums](docs/voorbeeld-weer.png) | ![Gefeliciteerd met ballonnen en confetti](docs/voorbeeld-verjaardag.png) |
+
+<sub>Schermafbeeldingen met fictieve namen/datums (320×240).</sub>
+
 ## Hoe werkt het?
 
 | Onderdeel | Bron |

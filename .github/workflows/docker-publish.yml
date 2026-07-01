@@ -62,10 +62,15 @@ jobs:
             echo "Nog geen tag — eerste release; alle commits meenemen."
             range="HEAD"
           fi
-          msgs=$(git log $range --format='%s%n%b')
+          # type/! alleen in de subject-regels toetsen (%s); een body-regel die
+          # toevallig met "feat:" of "fix!:" begint mag geen bump forceren.
+          # BREAKING CHANGE hoort juist in de footer, dus die in de volledige
+          # tekst (%B), verankerd aan het regelbegin.
+          subjects=$(git log $range --format='%s')
+          bodies=$(git log $range --format='%B')
           bump=patch
-          if echo "$msgs" | grep -qE '^(feat)(\(.+\))?(!)?:'; then bump=minor; fi
-          if echo "$msgs" | grep -qE '^[a-zA-Z]+(\(.+\))?!:' || echo "$msgs" | grep -q 'BREAKING CHANGE'; then bump=major; fi
+          if echo "$subjects" | grep -qE '^(feat)(\(.+\))?(!)?:'; then bump=minor; fi
+          if echo "$subjects" | grep -qE '^[a-zA-Z]+(\(.+\))?!:' || echo "$bodies" | grep -qE '^BREAKING CHANGE'; then bump=major; fi
           ver=${last#v}
           IFS=. read -r MA MI PA <<< "${ver:-0.0.0}"
           MA=${MA:-0}; MI=${MI:-0}; PA=${PA:-0}

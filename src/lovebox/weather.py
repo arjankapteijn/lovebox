@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import requests
 
@@ -77,13 +78,15 @@ def clothing_advice(temp_max: float, rain_sum: float, wind_kmh: float) -> list[s
     return advice
 
 
-def fetch_weather(lat: float, lon: float, *, timeout: float = 10) -> Weather:
+def fetch_weather(
+    lat: float, lon: float, *, timezone: str = "Europe/Amsterdam", timeout: float = 10
+) -> Weather:
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
         "&daily=weathercode,temperature_2m_max,temperature_2m_min"
         ",precipitation_sum,wind_speed_10m_max"
-        "&timezone=Europe/Amsterdam"
+        f"&timezone={quote(timezone)}"
         "&forecast_days=1"
     )
     resp = requests.get(url, timeout=timeout)

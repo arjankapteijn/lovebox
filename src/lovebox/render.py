@@ -7,6 +7,7 @@ alleen tekens die DejaVu wel kent (zoals ° en ♥) worden als tekst gebruikt.
 
 from __future__ import annotations
 
+import math
 import os
 from datetime import datetime
 from io import BytesIO
@@ -158,20 +159,42 @@ def _draw_balloon(draw: ImageDraw.ImageDraw, cx: int, cy: int, rx: int, ry: int,
     draw.line(pts, fill=(150, 120, 110), width=1)
 
 
-def _draw_confetti(draw: ImageDraw.ImageDraw, top: int, bottom: int) -> None:
-    """Deterministische confetti-spreiding (geen random → reproduceerbaar)."""
-    height = bottom - top - 8
-    for i in range(28):
-        x = 10 + (i * 53) % (IMG_W - 24)
-        y = top + 2 + (i * 31) % height
+def _draw_star(draw: ImageDraw.ImageDraw, cx: float, cy: float, r: float, color) -> None:
+    """Vijfpuntige ster als vorm (rendert overal gelijk, geen font nodig)."""
+    pts = []
+    for k in range(10):
+        ang = math.radians(-90 + k * 36)
+        rad = r if k % 2 == 0 else r * 0.45
+        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
+    draw.polygon(pts, fill=color)
+
+
+def _draw_garland(
+    draw: ImageDraw.ImageDraw, x0: int, x1: int, y_top: int, sag: int, n_flags: int
+) -> None:
+    """Een slinger: een doorzakkend touwtje met vlaggetjes die eronder hangen."""
+
+    def arc_y(x: float) -> float:
+        # Neerwaartse parabool: uiteinden op y_top, in het midden `sag` lager.
+        t = (x - x0) / (x1 - x0)
+        return y_top + sag * (1 - (2 * t - 1) ** 2)
+
+    # Doorzakkend touwtje
+    string_pts = [(x, round(arc_y(x))) for x in range(x0, x1 + 1, 4)]
+    draw.line(string_pts, fill=(120, 90, 80), width=2)
+
+    # Vlaggetjes hangend aan het touwtje (puntje naar beneden)
+    half, drop = 9, 16
+    for i in range(n_flags):
+        t = (i + 0.5) / n_flags
+        x = round(x0 + t * (x1 - x0))
+        y = round(arc_y(x))
         color = PARTY[i % len(PARTY)]
-        shape = i % 3
-        if shape == 0:
-            draw.ellipse([x, y, x + 5, y + 5], fill=color)
-        elif shape == 1:
-            draw.rectangle([x, y, x + 5, y + 5], fill=color)
-        else:
-            draw.polygon([(x + 3, y), (x + 6, y + 6), (x, y + 6)], fill=color)
+        draw.polygon(
+            [(x - half, y), (x + half, y), (x, y + drop)],
+            fill=color,
+            outline=(255, 255, 255),
+        )
 
 
 def _draw_festive(draw: ImageDraw.ImageDraw, weather: Weather, birthdays: list[Occurrence]) -> None:
@@ -180,27 +203,24 @@ def _draw_festive(draw: ImageDraw.ImageDraw, weather: Weather, birthdays: list[O
     f_line = load_font(16)
     desc = weather_description(weather.code)
 
-    # Compacte weerregel onder de header
-    _center(draw, f"{weather.temp_max:.0f}°  ·  {desc}", 33, f_small, TEXT_LIGHT)
-
-    # Confetti als achtergrond (achter de tekst getekend)
-    _draw_confetti(draw, 56, 236)
+    # Slinger bovenaan: doorzakkend touwtje met vlaggetjes
+    _draw_garland(draw, x0=10, x1=310, y_top=32, sag=16, n_flags=9)
 
     # Ballonnen links en rechts
-    _draw_balloon(draw, 34, 128, 24, 30, PARTY_PINK)
-    _draw_balloon(draw, 286, 128, 24, 30, PARTY_BLUE)
+    _draw_balloon(draw, 34, 132, 24, 30, PARTY_PINK)
+    _draw_balloon(draw, 286, 132, 24, 30, PARTY_BLUE)
 
-    # Sterretjes rond de titel
-    for x, y in ((92, 60), (214, 60)):
-        draw.text((x, y), "★", font=f_line, fill=(250, 200, 60))
+    # Sterretjes naast de titel
+    for cx in (60, 260):
+        _draw_star(draw, cx, 84, 7, (250, 200, 60))
 
     # Gefeliciteerd!
-    _center(draw, "Gefeliciteerd!", 62, f_title, ACCENT)
+    _center(draw, "Gefeliciteerd!", 72, f_title, ACCENT)
 
     # Naam/namen zo groot mogelijk laten passen (tussen de ballonnen)
     names = " & ".join(b.name for b in birthdays)
     f_name = _fit_font(draw, names, max_w=196, sizes=[34, 30, 26, 22, 18])
-    _center(draw, names, 96, f_name, PARTY_PINK)
+    _center(draw, names, 104, f_name, PARTY_PINK)
 
     # Leeftijdsregel
     if len(birthdays) == 1 and birthdays[0].age is not None:
@@ -209,10 +229,11 @@ def _draw_festive(draw: ImageDraw.ImageDraw, weather: Weather, birthdays: list[O
         age_line = "is vandaag jarig!"
     else:
         age_line = "zijn vandaag jarig!"
-    _center(draw, age_line, 150, f_line, TEXT_DARK)
+    _center(draw, age_line, 154, f_line, TEXT_DARK)
 
-    # Slinger-slot
-    _center(draw, "Hiep hiep hoera!", 178, f_line, ACCENT)
+    # Slot + kleine weerregel als voetregel
+    _center(draw, "Hiep hiep hoera!", 180, f_line, ACCENT)
+    _center(draw, f"{weather.temp_max:.0f}°  ·  {desc}", 218, f_small, TEXT_LIGHT)
 
 
 # ---------------------------------------------------------------------------

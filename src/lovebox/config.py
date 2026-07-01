@@ -78,9 +78,13 @@ def _get_float(env: Mapping[str, str], name: str, default: float) -> float:
 def parse_entries(raw: str, *, var_name: str) -> tuple[Entry, ...]:
     """Parse een JSON-lijst van {"name": ..., "date": ...} objecten.
 
-    Een lege/afwezige waarde levert een lege tuple op. Ongeldige JSON of een
-    verkeerde structuur geeft een duidelijke ValueError.
+    Een lege/afwezige waarde levert een lege tuple op. Ongeldige JSON, een
+    verkeerde structuur of een onbruikbare datum geeft een duidelijke ValueError.
     """
+    # Lazy import: events importeert config, dus op modulniveau zou dit een
+    # circulaire import zijn.
+    from .events import validate_date
+
     raw = (raw or "").strip()
     if not raw:
         return ()
@@ -99,6 +103,10 @@ def parse_entries(raw: str, *, var_name: str) -> tuple[Entry, ...]:
         date = str(item.get("date", "")).strip()
         if not name or not date:
             raise ValueError(f"{var_name}[{i}] mist 'name' of 'date'")
+        try:
+            validate_date(date)
+        except ValueError as exc:
+            raise ValueError(f"{var_name}[{i}] heeft een ongeldige datum: {exc}") from exc
         entries.append(Entry(name=name, date=date))
     return tuple(entries)
 

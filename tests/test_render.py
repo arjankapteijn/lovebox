@@ -4,7 +4,7 @@ from io import BytesIO
 from PIL import Image
 
 from lovebox.events import Occurrence
-from lovebox.render import BG_COLOR, IMG_H, IMG_W, create_image
+from lovebox.render import BG_COLOR, IMG_H, IMG_W, PARTY_PINK, create_image
 from lovebox.weather import Weather, clothing_advice
 
 WEATHER = Weather(code=61, temp_max=18, temp_min=11, rain_sum=2.0, wind_kmh=25, date="2026-07-01")
@@ -30,6 +30,12 @@ def _ink_in_band(img, y0, y1):
     return sum(
         1 for y in range(y0, y1) for x in range(img.width) if px.getpixel((x, y)) != BG_COLOR
     )
+
+
+def _has_color(img, color):
+    """Komt deze exacte kleur ergens in de afbeelding voor?"""
+    px = img.convert("RGB")
+    return any(px.getpixel((x, y)) == color for y in range(img.height) for x in range(img.width))
 
 
 def test_image_is_png_320x240_without_events():
@@ -68,3 +74,28 @@ def test_max_clothing_does_not_hide_birthdays():
     # binnen het scherm van 240px hoog.
     assert _ink_in_band(img, 200, 216) > 0
     assert _ink_in_band(img, 218, 234) > 0
+
+
+def test_festive_mode_on_birthday_today():
+    """Op de verjaardag zelf: feestweergave (ballonnen) i.p.v. kledingadvies."""
+    occ = [Occurrence("Ighone", date(2026, 7, 7), 0, "birthday", 5)]
+    img = _open(create_image(WEATHER, occ, "Harderwijk"))
+    assert img.size == (IMG_W, IMG_H)
+    # De roze ballon-kleur komt alleen in de feestweergave voor.
+    assert _has_color(img, PARTY_PINK)
+
+
+def test_festive_mode_handles_birthday_without_age():
+    """Een verjaardag zonder geboortejaar (MM-DD) mag ook feestelijk renderen."""
+    occ = [Occurrence("Oma", date(2026, 7, 7), 0, "birthday", None)]
+    img = _open(create_image(WEATHER, occ, "Harderwijk"))
+    assert img.size == (IMG_W, IMG_H)
+    assert _has_color(img, PARTY_PINK)
+
+
+def test_no_festive_mode_when_birthday_is_not_today():
+    """Verjaardag over 6 dagen → gewone weergave, geen ballonnen."""
+    occ = [Occurrence("Ighone", date(2026, 7, 7), 6, "birthday", 5)]
+    img = _open(create_image(WEATHER, occ, "Harderwijk"))
+    assert not _has_color(img, PARTY_PINK)
+    assert _ink_in_band(img, 136, 173) > 0  # kledingadvies staat er wel

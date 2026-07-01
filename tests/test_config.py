@@ -29,6 +29,22 @@ def test_parse_entries_missing_field():
         parse_entries('[{"name": "Emma"}]', var_name="X")
 
 
+def test_parse_entries_invalid_date_fails_fast():
+    # Een typefout in de datum moet bij het laden opvallen, niet pas dagelijks
+    # stil in de scheduler (die exceptions slikt).
+    with pytest.raises(ValueError, match="ongeldige datum"):
+        parse_entries('[{"name": "Emma", "date": "15-40"}]', var_name="X")
+    with pytest.raises(ValueError, match="ongeldige datum"):
+        parse_entries('[{"name": "Emma", "date": "niet-een-datum"}]', var_name="X")
+
+
+def test_parse_entries_accepts_leap_day():
+    # 29 feb is een geldige (terugkerende) datum, ook al is 2000 hier willekeurig.
+    assert parse_entries('[{"name": "Schrikkel", "date": "02-29"}]', var_name="X") == (
+        Entry("Schrikkel", "02-29"),
+    )
+
+
 def test_load_config_defaults():
     cfg = load_config(env={})
     assert cfg.location_name == "Harderwijk"

@@ -47,6 +47,22 @@ def _safe_date(year: int, month: int, day: int) -> date:
         raise
 
 
+def validate_date(value: str) -> None:
+    """Valideer dat `value` een geldige 'MM-DD' of 'YYYY-MM-DD' datum is.
+
+    Raises ValueError als dat niet zo is. Wordt bij het laden van de config
+    aangeroepen zodat een typefout meteen opvalt, in plaats van dagelijks stil
+    de hele dagbericht-job te laten falen (de scheduler slikt die exceptie).
+    """
+    try:
+        month, day, year = _parse_month_day_year(value)
+    except ValueError as exc:
+        # int()-fouten netjes herformuleren tot dezelfde uitleg.
+        raise ValueError(f"Ongeldige datum {value!r}; gebruik 'MM-DD' of 'YYYY-MM-DD'") from exc
+    # Schrikkeljaar zodat 29 feb geldig is; _safe_date vangt die sowieso af.
+    _safe_date(year if year is not None else 2000, month, day)
+
+
 def _next_annual(month: int, day: int, today: date) -> date:
     """Eerstvolgende voorkomen van een jaarlijks terugkerende maand/dag."""
     candidate = _safe_date(today.year, month, day)

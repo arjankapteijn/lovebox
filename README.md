@@ -31,6 +31,10 @@ gevoeligs in git.
   (`LOVEBOX_EVENT_WINDOW_DAYS`, standaard 30 dagen).
 - Er worden **maximaal 2 datums tegelijk** getoond (`LOVEBOX_MAX_SLOTS`),
   waarbij **verjaardagen voorrang** krijgen op activiteiten.
+- **Op de verjaardag zelf** verschijnt een feestelijke weergave: een grote
+  "Gefeliciteerd {naam}!" met ballonnen, confetti en sterren (in plaats van
+  het kledingadvies). Vallen er twee verjaardagen op dezelfde dag, dan worden
+  beide namen getoond.
 
 ---
 

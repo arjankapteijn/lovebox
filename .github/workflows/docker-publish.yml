@@ -48,18 +48,25 @@ jobs:
         if: github.ref_type == 'branch'
         run: |
           set -euo pipefail
-          last=$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || echo v0.0.0)
-          echo "Laatste tag: $last"
-          if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
-            echo "HEAD is al getagd — geen nieuwe versie."
-            exit 0
+          # Laatste v*-tag; leeg bij de allereerste release (nog geen tags).
+          last=$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || true)
+          if [ -n "$last" ]; then
+            echo "Laatste tag: $last"
+            if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
+              echo "HEAD is al getagd — geen nieuwe versie."
+              exit 0
+            fi
+            range="${last}..HEAD"
+          else
+            echo "Nog geen tag — eerste release; alle commits meenemen."
+            range="HEAD"
           fi
-          msgs=$(git log "${last}..HEAD" --format='%s%n%b')
+          msgs=$(git log $range --format='%s%n%b')
           bump=patch
           if echo "$msgs" | grep -qE '^(feat)(\(.+\))?(!)?:'; then bump=minor; fi
           if echo "$msgs" | grep -qE '^[a-zA-Z]+(\(.+\))?!:' || echo "$msgs" | grep -q 'BREAKING CHANGE'; then bump=major; fi
           ver=${last#v}
-          IFS=. read -r MA MI PA <<< "$ver"
+          IFS=. read -r MA MI PA <<< "${ver:-0.0.0}"
           MA=${MA:-0}; MI=${MI:-0}; PA=${PA:-0}
           case "$bump" in
             major) MA=$((MA + 1)); MI=0; PA=0 ;;
@@ -75,9 +82,9 @@ jobs:
           notes="$RUNNER_TEMP/release-notes.md"
           {
             echo "## What's Changed"
-            git log "${last}..HEAD" --no-merges --format='* %s (%h)'
+            git log $range --no-merges --format='* %s (%h)'
             echo ""
-            if [ "$last" != v0.0.0 ]; then
+            if [ -n "$last" ]; then
               echo "**Full Changelog**: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${last}...v${new}"
             fi
           } > "$notes"

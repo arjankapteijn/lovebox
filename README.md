@@ -198,15 +198,23 @@ De container draait als non-root, met read-only rootfs, `cap_drop: ALL`,
 ### Een eigen icoon in de Apps-lijst
 
 TrueNAS custom apps hebben geen icoon-veld in de YAML; de zichtbaarheid komt uit
-de app-metadata. Voeg in `/mnt/.ix-apps/metadata.yaml` onder het `lovebox`-blok
-een `icon`-regel toe (onder `metadata:`), bijv. naar het icoon in deze repo:
+de app-metadata. Zet het icoon in het **per-app**-bestand
+`/mnt/.ix-apps/app_configs/lovebox/metadata.yaml` — als sleutel onder het
+`metadata:`-blok. **Niet** in het globale `/mnt/.ix-apps/metadata.yaml`: dat
+wordt bij elke deploy opnieuw opgebouwd, waardoor je icon-regel wordt gewist.
+Het per-app-bestand blijft wél staan over updates heen.
 
-```yaml
-    "icon": "https://raw.githubusercontent.com/arjankapteijn/lovebox/main/docs/icon.png"
+Als root op TrueNAS:
+
+```bash
+# bekijk de structuur, voeg dan de icon-regel als eerste kind van "metadata": toe
+sed -i '/^"metadata":/a\  "icon": "https://raw.githubusercontent.com/arjankapteijn/lovebox/main/docs/icon.png"' \
+  /mnt/.ix-apps/app_configs/lovebox/metadata.yaml
 ```
 
-> Let op: TrueNAS kan dit bestand bij een app-update overschrijven, dus
-> controleer het icoon na een update.
+Een edit op schijf pakt TrueNAS pas op na een redeploy: ga in de UI naar
+Apps → **lovebox** → **Edit** → **Save** (zonder wijzigingen). Daarna eventueel
+een harde browser-refresh (Ctrl/Cmd+Shift+R) tegen de icoon-cache.
 
 ### Updaten
 

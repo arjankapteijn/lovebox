@@ -57,8 +57,7 @@ def build_and_send(config: Config) -> None:
     box_ids = [b["_id"] for b in boxes]
     if config.box_id not in box_ids:
         print(
-            f"  ! Waarschuwing: box_id {config.box_id!r} niet in account. "
-            f"Beschikbaar: {box_ids}",
+            f"  ! Waarschuwing: box_id {config.box_id!r} niet in account. Beschikbaar: {box_ids}",
             flush=True,
         )
 

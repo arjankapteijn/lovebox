@@ -1,0 +1,26 @@
+# Self-scheduling container: draait continu en verstuurt dagelijks rond
+# LOVEBOX_RUN_AT. Op TrueNAS pin je een vaste tag (bijv. :1.0.0) en bump je die.
+services:
+  lovebox:
+    image: ghcr.io/arjankapteijn/lovebox:latest
+    container_name: lovebox
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - lovebox-data:/data
+    # Hardening (zelfde lijn als arjankapteijn.nl): non-root (in image),
+    # read-only rootfs, geen extra capabilities, geen privilege-escalatie,
+    # en bescheiden geheugen-/pids-limieten.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+
+volumes:
+  lovebox-data:

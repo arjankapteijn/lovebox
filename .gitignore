@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Test / tooling cache
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Claude Code local config
+.claude/
+
+# Secrets — NOOIT committen
+.env
+
+# Lokale events/agenda met persoonsgegevens (namen, datums)
+events.local.json
+*.local.json
+
+# Interne projectnotities (lokaal houden)
+MEMORY.md
+
+# Oude referentie-versie
+.attic/
+
+# Previews / runtime-artefacten
+lovebox_preview.png
+data/

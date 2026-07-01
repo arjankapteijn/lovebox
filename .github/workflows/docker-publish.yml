@@ -1,0 +1,128 @@
+name: Publish Docker image
+
+# Bouwt het container-image en pusht het naar GitHub Container Registry
+# (ghcr.io). Bij elke push naar main wordt eerst automatisch de volgende
+# semver-tag afgeleid uit de commit-messages (conventional commits:
+# feat -> minor, BREAKING/!-> major, anders patch) en aangemaakt; in
+# diezelfde run wordt meteen het :x.y.z-image gebouwd. Handmatige v*-tags
+# blijven ook gewoon werken.
+# Op TrueNAS pin je de app op een vaste tag (bijv. :1.1.0) en bump je die.
+on:
+  push:
+    branches: [main]
+    # doc-only commits hoeven geen image te bouwen / versie te bumpen.
+    # NB: path-filters gelden niet voor tag-pushes — releases (v*) bouwen altijd.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+    tags: ['v*']
+
+# nieuwe push op dezelfde branch annuleert een nog lopende build
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+# Restrictieve default voor de GITHUB_TOKEN; jobs vragen expliciet meer aan.
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # nodig om de auto-versie-tag te pushen
+      packages: write # nodig om naar ghcr.io te pushen
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # volledige historie + tags voor de versieberekening
+
+      # Leidt de volgende semver-tag af uit de commits sinds de laatste tag
+      # en maakt 'm aan. Draait alleen bij push naar main, niet bij een
+      # handmatige v*-tag-push (dan komt de versie uit de tag zelf, zie meta).
+      - name: Volgende versie bepalen & taggen
+        id: version
+        if: github.ref_type == 'branch'
+        run: |
+          set -euo pipefail
+          last=$(git describe --tags --match 'v*' --abbrev=0 2>/dev/null || echo v0.0.0)
+          echo "Laatste tag: $last"
+          if git describe --tags --exact-match HEAD >/dev/null 2>&1; then
+            echo "HEAD is al getagd — geen nieuwe versie."
+            exit 0
+          fi
+          msgs=$(git log "${last}..HEAD" --format='%s%n%b')
+          bump=patch
+          if echo "$msgs" | grep -qE '^(feat)(\(.+\))?(!)?:'; then bump=minor; fi
+          if echo "$msgs" | grep -qE '^[a-zA-Z]+(\(.+\))?!:' || echo "$msgs" | grep -q 'BREAKING CHANGE'; then bump=major; fi
+          ver=${last#v}
+          IFS=. read -r MA MI PA <<< "$ver"
+          MA=${MA:-0}; MI=${MI:-0}; PA=${PA:-0}
+          case "$bump" in
+            major) MA=$((MA + 1)); MI=0; PA=0 ;;
+            minor) MI=$((MI + 1)); PA=0 ;;
+            patch) PA=$((PA + 1)) ;;
+          esac
+          new="${MA}.${MI}.${PA}"
+          echo "Bump: $bump  ->  v$new"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$new" -m "Release v$new"
+          git push origin "v$new"
+          notes="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "## What's Changed"
+            git log "${last}..HEAD" --no-merges --format='* %s (%h)'
+            echo ""
+            if [ "$last" != v0.0.0 ]; then
+              echo "**Full Changelog**: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${last}...v${new}"
+            fi
+          } > "$notes"
+          {
+            echo "version=$new"
+            echo "major_minor=${MA}.${MI}"
+            echo "notes_file=$notes"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: GitHub Release aanmaken
+        if: steps.version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "v${{ steps.version.outputs.version }}" --notes-file "${{ steps.version.outputs.notes_file }}" --title "v${{ steps.version.outputs.version }}"
+
+      - uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+
+      - name: Log in bij ghcr.io
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags & labels bepalen
+        id: meta
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96 # v5.6.1
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,format=short
+            type=raw,value=${{ steps.version.outputs.version }},enable=${{ steps.version.outputs.version != '' }}
+            type=raw,value=${{ steps.version.outputs.major_minor }},enable=${{ steps.version.outputs.major_minor != '' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Bouwen en pushen
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

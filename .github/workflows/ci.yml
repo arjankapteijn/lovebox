@@ -1,0 +1,31 @@
+name: CI
+
+# Lint + test op elke push naar main en op elke PR (incl. Dependabot), zodat
+# dependency-PR's meteen groen/rood tonen. Draait op ubuntu en bewaart geen
+# artifacts → blijft binnen het gratis Actions-tegoed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# nieuwe push op dezelfde branch annuleert een nog lopende run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12" # gelijk aan de runtime in de Dockerfile
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest

@@ -141,27 +141,78 @@ Bij `LOVEBOX_RUN_ONCE=true` wordt de afbeelding vóór verzenden opgeslagen als
 
 ---
 
-## Deployen op TrueNAS (Docker)
+## Deployen op TrueNAS (custom app)
 
 De container is **self-scheduling**: hij blijft draaien en verstuurt dagelijks
-rond `LOVEBOX_RUN_AT`. Zo staat hij netjes in je apps-lijst en update je 'm met
-een tag-bump.
+rond `LOVEBOX_RUN_AT`. Geen webserver → geen ports of reverse-proxy nodig. Zo
+staat hij netjes in je apps-lijst.
 
-1. Zorg dat het image gepubliceerd is (zie CI/CD) op
-   `ghcr.io/<jouw-user>/lovebox`.
-2. Gebruik `docker-compose.yml` (of een custom app in TrueNAS) en koppel je
-   `.env`. Pin een **vaste tag**:
+**1. Zorg dat de ghcr-package public is** (of geef TrueNAS een pull-credential),
+anders kan `pull_policy: always` het image niet ophalen.
 
-   ```yaml
-   image: ghcr.io/arjankapteijn/lovebox:1.0.0
-   ```
+**2. Zet je `.env` op een vast pad**, bijv. `/mnt/apps/lovebox/.env`, met de
+credentials + agenda-JSON (zie [Configuratie](#configuratie)). Zorg dat
+`LOVEBOX_RUN_ONCE=false` en dat het pad exact klopt.
 
-3. Start. Optioneel `LOVEBOX_RUN_ON_START=true` om de deploy meteen te testen.
-4. **Zet je oude cron-job uit** zodra de container draait — anders krijg je
-   dubbele berichten.
+**3. Apps → Discover Apps → ⋮ → Install via YAML**, naam `lovebox`, en plak:
+
+```yaml
+services:
+  lovebox:
+    image: ghcr.io/arjankapteijn/lovebox:latest
+    container_name: lovebox
+    pull_policy: always
+    restart: unless-stopped
+    env_file: /mnt/apps/lovebox/.env   # absoluut pad! relatief .env wordt /tmp/.env
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m
+    volumes:
+      - lovebox-data:/data             # named volume: erft app:app uit het image
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    pids_limit: 128
+
+volumes:
+  lovebox-data:
+```
+
+**4. Start.** Optioneel eerst `LOVEBOX_RUN_ON_START=true` in de `.env` om de
+deploy meteen te testen (daarna weer op `false`, anders stuurt elke herstart
+een bericht). **Zet je oude cron-job uit** zodra de container draait.
 
 De container draait als non-root, met read-only rootfs, `cap_drop: ALL`,
-`no-new-privileges` en een healthcheck op een heartbeat-bestand.
+`no-new-privileges` en een healthcheck op een heartbeat-bestand in `/data`.
+
+> **Twee valkuilen (uit ervaring):**
+> - Gebruik een **absoluut** `env_file`-pad. Een relatief `.env` wordt door
+>   TrueNAS naar `/tmp/.env` herleid en niet gevonden.
+> - Gebruik een **named volume** voor `/data`, geen `tmpfs`. Een tmpfs is niet
+>   schrijfbaar voor de non-root app-user, waardoor het heartbeat-bestand niet
+>   geschreven wordt, de healthcheck faalt en de app op *"deploying"* blijft
+>   hangen.
+
+### Een eigen icoon in de Apps-lijst
+
+TrueNAS custom apps hebben geen icoon-veld in de YAML; de zichtbaarheid komt uit
+de app-metadata. Voeg in `/mnt/.ix-apps/metadata.yaml` onder het `lovebox`-blok
+een `icon`-regel toe (onder `metadata:`), bijv. naar het icoon in deze repo:
+
+```yaml
+    "icon": "https://raw.githubusercontent.com/arjankapteijn/lovebox/main/docs/icon.png"
+```
+
+> Let op: TrueNAS kan dit bestand bij een app-update overschrijven, dus
+> controleer het icoon na een update.
+
+### Updaten
+
+`:latest` + `pull_policy: always`: app opnieuw deployen → nieuwste image. Voor
+reproduceerbaarheid kun je een vaste tag pinnen (bijv.
+`ghcr.io/arjankapteijn/lovebox:0.3.2`) en die bumpen.
 
 ---
 

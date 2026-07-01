@@ -24,14 +24,16 @@ def _parse_hhmm(run_at: str) -> tuple[int, int]:
         raise ValueError(f"LOVEBOX_RUN_AT moet 'HH:MM' zijn, kreeg {run_at!r}") from exc
 
 
-def _touch_heartbeat(data_dir: str) -> None:
+def _touch_heartbeat(data_dir: str) -> bool:
+    """Raak het heartbeat-bestand aan. Geeft False als schrijven niet lukt."""
     try:
         os.makedirs(data_dir, exist_ok=True)
         path = os.path.join(data_dir, "heartbeat")
         with open(path, "w", encoding="utf-8") as f:
             f.write(datetime.now().isoformat())
+        return True
     except OSError:
-        pass  # heartbeat is best-effort; nooit de loop laten crashen
+        return False  # heartbeat is best-effort; nooit de loop laten crashen
 
 
 def _due(now: datetime, run_h: int, run_m: int, last_run: date | None) -> bool:
@@ -61,10 +63,28 @@ def run_forever(
     now_fn = _now or (lambda: datetime.now(tz))
     run_h, run_m = _parse_hhmm(run_at)
 
+    # Meteen één heartbeat schrijven zodat de healthcheck snel groen kan worden;
+    # lukt dat niet, dan is de mount niet schrijfbaar voor de app-user — dat is
+    # een harde configuratiefout, dus luid loggen (i.p.v. stil falen).
+    if not _touch_heartbeat(data_dir):
+        print(
+            f"[scheduler] WAARSCHUWING: kan niet schrijven in {data_dir!r}. "
+            "De healthcheck zal falen en de app blijft ongezond. Zorg dat deze "
+            "mount schrijfbaar is voor uid 10001 (bijv. een named volume i.p.v. tmpfs).",
+            flush=True,
+        )
+
     last_run: date | None = None
     if run_on_start:
         _safe_run(job)
         last_run = now_fn().date()
+    else:
+        # `run_on_start=False` betekent: niet meteen sturen. Zijn we vandaag al
+        # voorbij het tijdstip, tel vandaag dan als 'gedaan' zodat er niet bij
+        # (her)start alsnog een bericht wordt ingehaald.
+        now = now_fn()
+        if (now.hour, now.minute) >= (run_h, run_m):
+            last_run = now.date()
 
     iterations = 0
     while _max_iterations is None or iterations < _max_iterations:

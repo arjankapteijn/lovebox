@@ -1,7 +1,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from lovebox.scheduler import _due, run_forever
+from lovebox.scheduler import _due, _touch_heartbeat, run_forever
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
@@ -21,10 +21,24 @@ def test_not_due_when_already_ran_today():
     assert _due(now, 7, 0, last_run=now.date()) is False
 
 
+def test_touch_heartbeat_writes_file(tmp_path):
+    assert _touch_heartbeat(str(tmp_path)) is True
+    assert (tmp_path / "heartbeat").exists()
+
+
+def test_touch_heartbeat_returns_false_when_unwritable(tmp_path):
+    # Een bestand (geen map) als data_dir → makedirs/open faalt → False.
+    f = tmp_path / "not-a-dir"
+    f.write_text("x")
+    assert _touch_heartbeat(str(f)) is False
+
+
 def test_run_forever_runs_once_per_day(tmp_path):
     calls = []
-    # simuleer 07:00 op dag 1, dan 07:01 (zelfde dag), dan 07:00 dag 2
+    # init leest de tijd één keer (vóór run_at → geen inhaal), daarna de loop:
+    # 07:00 dag 1, 07:01 (zelfde dag), 07:00 dag 2.
     times = [
+        datetime(2026, 7, 1, 6, 0, tzinfo=TZ),  # init-check
         datetime(2026, 7, 1, 7, 0, tzinfo=TZ),
         datetime(2026, 7, 1, 7, 1, tzinfo=TZ),
         datetime(2026, 7, 2, 7, 0, tzinfo=TZ),
@@ -39,9 +53,33 @@ def test_run_forever_runs_once_per_day(tmp_path):
         tick_seconds=0,
         _now=lambda: next(seq),
         _sleep=lambda _: None,
-        _max_iterations=len(times),
+        _max_iterations=3,
     )
     assert sum(calls) == 2  # één keer per dag, niet drie keer
+
+
+def test_late_start_without_run_on_start_waits_until_next_day(tmp_path):
+    """run_on_start=False + gestart ná het tijdstip → vandaag NIET sturen."""
+    calls = []
+    times = [
+        datetime(2026, 7, 1, 8, 0, tzinfo=TZ),  # init: al voorbij 07:00 → vandaag = gedaan
+        datetime(2026, 7, 1, 8, 1, tzinfo=TZ),  # loop dag 1 → niet sturen
+        datetime(2026, 7, 2, 7, 0, tzinfo=TZ),  # loop dag 2 → wél sturen
+    ]
+    seq = iter(times)
+
+    run_forever(
+        lambda: calls.append(1),
+        run_at="07:00",
+        timezone="Europe/Amsterdam",
+        data_dir=str(tmp_path),
+        run_on_start=False,
+        tick_seconds=0,
+        _now=lambda: next(seq),
+        _sleep=lambda _: None,
+        _max_iterations=2,
+    )
+    assert sum(calls) == 1  # alleen dag 2, niet meteen bij de late start
 
 
 def test_run_on_start_triggers_immediately(tmp_path):

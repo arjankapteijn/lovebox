@@ -48,8 +48,8 @@ def build_and_send(config: Config) -> None:
         with open(preview, "wb") as f:
             f.write(png_bytes)
         print(f"     Preview: {preview} ({len(png_bytes) / 1024:.1f} kB)", flush=True)
-    except OSError:
-        pass
+    except OSError as exc:
+        print(f"     ! Kon preview niet schrijven naar {preview}: {exc}", flush=True)
 
     print("  -> Inloggen bij Lovebox...", flush=True)
     token = api.login(config.email, config.password)

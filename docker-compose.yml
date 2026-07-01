@@ -1,26 +1,31 @@
 # Self-scheduling container: draait continu en verstuurt dagelijks rond
-# LOVEBOX_RUN_AT. Op TrueNAS pin je een vaste tag (bijv. :1.0.0) en bump je die.
+# LOVEBOX_RUN_AT. Geen webserver → geen ports/proxy nodig.
+#
+# De app heeft geen persistente staat: /data bevat alleen het heartbeat-
+# bestand (voor de healthcheck) en de laatste preview, dus een tmpfs volstaat
+# — geen volume om te beheren.
+#
+# Updaten: met :latest + pull_policy always de app opnieuw deployen. Voor
+# reproduceerbaarheid kun je ook een vaste tag pinnen (bijv. :0.3.0) en die
+# bumpen.
 services:
   lovebox:
     image: ghcr.io/arjankapteijn/lovebox:latest
     container_name: lovebox
+    pull_policy: always
     restart: unless-stopped
     env_file:
       - .env
-    volumes:
-      - lovebox-data:/data
     # Hardening (zelfde lijn als arjankapteijn.nl): non-root (in image),
     # read-only rootfs, geen extra capabilities, geen privilege-escalatie,
     # en bescheiden geheugen-/pids-limieten.
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=8m
+      - /data:size=8m
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
     mem_limit: 256m
     pids_limit: 128
-
-volumes:
-  lovebox-data:

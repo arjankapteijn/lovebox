@@ -26,7 +26,7 @@ def build_and_send(config: Config) -> None:
     print(f"[{datetime.now(tz):%Y-%m-%d %H:%M}] Lovebox dagbericht starten...", flush=True)
 
     print(f"  -> Weer ophalen voor {config.location_name}...", flush=True)
-    weather = fetch_weather(config.lat, config.lon)
+    weather = fetch_weather(config.lat, config.lon, timezone=config.timezone)
     print(
         f"     {weather_description(weather.code)}"
         f" | max {weather.temp_max:.0f}° / min {weather.temp_min:.0f}°"

@@ -19,6 +19,11 @@ from .weather import Weather, clothing_advice, weather_description
 
 IMG_W, IMG_H = 320, 240
 
+# Onder het kledingadvies passen op 320x240 twee "Binnenkort"-regels. Zijn er
+# meer geselecteerde datums (LOVEBOX_MAX_SLOTS > 2), dan vat de laatste regel
+# de rest samen als "+N meer" i.p.v. ze stil weg te laten.
+MAX_UPCOMING_ROWS = 2
+
 # Kleuren
 BG_COLOR = (255, 245, 235)
 ACCENT = (220, 80, 60)
@@ -133,11 +138,19 @@ def _draw_standard(
     if occurrences:
         draw.line([(8, 176), (IMG_W - 8, 176)], fill=LINE_COLOR, width=1)
         draw.text((10, 180), "Binnenkort:", font=f_med, fill=ACCENT)
-        for i, occ in enumerate(occurrences[:2]):
+        # Past alles? Dan alle regels tonen. Zo niet, één regel vrijhouden voor
+        # de "+N meer"-samenvatting zodat er niets stil wegvalt.
+        rows = occurrences
+        if len(occurrences) > MAX_UPCOMING_ROWS:
+            rows = occurrences[: MAX_UPCOMING_ROWS - 1]
+        for i, occ in enumerate(rows):
             y = 202 + i * 18
             marker = "♥" if occ.kind == "birthday" else "•"
             draw.text((14, y), marker, font=f_small, fill=ACCENT)
             draw.text((30, y), format_line(occ), font=f_small, fill=TEXT_DARK)
+        hidden = len(occurrences) - len(rows)
+        if hidden:
+            draw.text((30, 202 + len(rows) * 18), f"+{hidden} meer", font=f_small, fill=TEXT_LIGHT)
 
 
 # ---------------------------------------------------------------------------

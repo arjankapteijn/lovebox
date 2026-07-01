@@ -59,6 +59,21 @@ def test_image_handles_none_occurrences():
     assert _open(png).size == (IMG_W, IMG_H)
 
 
+def test_upcoming_overflow_is_summarised_not_dropped():
+    """Regressie: bij meer datums dan er passen mag er niets stil wegvallen.
+
+    Vroeger kapte de renderer af op occurrences[:2] en verdween een derde datum
+    zonder spoor. Nu vult een "+N meer"-regel de laatste rij, dus het beeld met
+    drie datums verschilt van dat met alleen de eerste twee.
+    """
+    a = Occurrence("Aaa", date(2026, 7, 11), 10, "event", None)
+    b = Occurrence("Bbb", date(2026, 7, 12), 11, "event", None)
+    c = Occurrence("Ccc", date(2026, 7, 13), 12, "event", None)
+    two = _open(create_image(WEATHER, [a, b], "X")).tobytes()
+    three = _open(create_image(WEATHER, [a, b, c], "X")).tobytes()
+    assert two != three
+
+
 def test_max_clothing_does_not_hide_birthdays():
     """Regressie: 4 kledingregels mogen géén verjaardag wegduwen.
 

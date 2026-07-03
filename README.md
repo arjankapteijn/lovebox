@@ -12,6 +12,15 @@ Deze repo is bewust **publiek-veilig**: alle persoonsgegevens (login, box-id,
 namen en datums, locatie) komen uit omgevingsvariabelen. Er staat niets
 gevoeligs in git.
 
+[![CI](https://github.com/arjankapteijn/lovebox/actions/workflows/ci.yml/badge.svg)](https://github.com/arjankapteijn/lovebox/actions/workflows/ci.yml)
+[![Publish Docker image](https://github.com/arjankapteijn/lovebox/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/arjankapteijn/lovebox/actions/workflows/docker-publish.yml)
+[![Versie](https://img.shields.io/github/v/tag/arjankapteijn/lovebox?sort=semver&label=versie&logo=github)](https://github.com/arjankapteijn/lovebox/tags)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Pillow](https://img.shields.io/badge/Pillow-imaging-11557C)
+![pytest](https://img.shields.io/badge/pytest-tested-0A9EDC?logo=pytest&logoColor=white)
+![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)
+![Container](https://img.shields.io/badge/image-ghcr.io-2496ED?logo=docker&logoColor=white)
+
 ---
 
 ## Voorbeeld

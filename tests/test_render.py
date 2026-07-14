@@ -59,6 +59,33 @@ def test_image_handles_none_occurrences():
     assert _open(png).size == (IMG_W, IMG_H)
 
 
+def test_image_without_weather_still_renders():
+    """Weer niet beschikbaar: bericht rendert nog, met datum uit `today`."""
+    png = create_image(None, [], "Harderwijk", today=date(2026, 7, 14))
+    img = _open(png)
+    assert img.format == "PNG"
+    assert img.size == (IMG_W, IMG_H)
+    # De temperatuurkleur (grote cijfers) hoort te ontbreken zonder weer...
+    assert not _has_color(img, (200, 60, 40))
+    # ...maar er staat wél tekst (de "niet beschikbaar"-melding).
+    assert _ink_in_band(img, 40, 110) > 0
+
+
+def test_image_without_weather_keeps_occurrences():
+    """Zonder weer moeten de aankomende datums nog steeds getekend worden."""
+    occ = [Occurrence("Schoolreis", date(2026, 7, 20), 6, "event", None)]
+    img = _open(create_image(None, occ, "Harderwijk", today=date(2026, 7, 14)))
+    assert _ink_in_band(img, 200, 216) > 0
+
+
+def test_festive_mode_without_weather():
+    """Verjaardag zonder weer: feestweergave rendert, zonder de weer-voetregel."""
+    occ = [Occurrence("Ighone", date(2026, 7, 14), 0, "birthday", 5)]
+    img = _open(create_image(None, occ, "Harderwijk", today=date(2026, 7, 14)))
+    assert img.size == (IMG_W, IMG_H)
+    assert _has_color(img, PARTY_PINK)
+
+
 def test_upcoming_overflow_is_summarised_not_dropped():
     """Regressie: bij meer datums dan er passen mag er niets stil wegvallen.
 

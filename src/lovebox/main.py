@@ -17,7 +17,7 @@ from .config import Config, is_configured, load_config
 from .events import select_occurrences
 from .render import create_image
 from .scheduler import run_forever
-from .weather import fetch_weather, weather_description
+from .weather import Weather, fetch_weather, weather_description
 
 
 def build_and_send(config: Config) -> None:
@@ -26,20 +26,31 @@ def build_and_send(config: Config) -> None:
     print(f"[{datetime.now(tz):%Y-%m-%d %H:%M}] Lovebox dagbericht starten...", flush=True)
 
     print(f"  -> Weer ophalen voor {config.location_name}...", flush=True)
-    weather = fetch_weather(config.lat, config.lon, timezone=config.timezone)
-    print(
-        f"     {weather_description(weather.code)}"
-        f" | max {weather.temp_max:.0f}° / min {weather.temp_min:.0f}°"
-        f" | regen {weather.rain_sum:.1f} mm | wind {weather.wind_kmh:.0f} km/u",
-        flush=True,
-    )
+    # Een weerfout (bijv. Open-Meteo tijdelijk down) mag het dagbericht niet
+    # tegenhouden: dan gaat het bericht door zonder weerinfo.
+    weather: Weather | None
+    try:
+        weather = fetch_weather(config.lat, config.lon, timezone=config.timezone)
+    except Exception as exc:  # noqa: BLE001 — bewust breed: weer is optioneel
+        weather = None
+        print(
+            f"     ! Weer ophalen mislukt: {exc!r}. Bericht gaat door zonder weerinfo.",
+            flush=True,
+        )
+    else:
+        print(
+            f"     {weather_description(weather.code)}"
+            f" | max {weather.temp_max:.0f}° / min {weather.temp_min:.0f}°"
+            f" | regen {weather.rain_sum:.1f} mm | wind {weather.wind_kmh:.0f} km/u",
+            flush=True,
+        )
 
     occurrences = select_occurrences(config, today)
     if occurrences:
         print("  -> Binnenkort: " + "; ".join(o.name for o in occurrences), flush=True)
 
     print("  -> Afbeelding (320x240) genereren...", flush=True)
-    png_bytes = create_image(weather, occurrences, config.location_name)
+    png_bytes = create_image(weather, occurrences, config.location_name, today)
 
     preview = os.path.join(
         config.data_dir if os.path.isdir(config.data_dir) else "/tmp", "lovebox_preview.png"

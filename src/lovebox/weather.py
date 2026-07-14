@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -78,9 +80,36 @@ def clothing_advice(temp_max: float, rain_sum: float, wind_kmh: float) -> list[s
     return advice
 
 
+def _is_retryable(exc: requests.RequestException) -> bool:
+    """Tijdelijke fout die opnieuw proberen zin heeft?
+
+    Open-Meteo geeft regelmatig kortdurend een 503. Ook timeouts en
+    connectiefouten (geen `response`) zijn tijdelijk. Een 'harde' clientfout
+    (4xx, behalve 429 Too Many Requests) is blijvend en proberen we niet opnieuw.
+    """
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if status is None:
+        return True  # timeout / connectiefout: geen HTTP-antwoord
+    return status >= 500 or status == 429
+
+
 def fetch_weather(
-    lat: float, lon: float, *, timezone: str = "Europe/Amsterdam", timeout: float = 10
+    lat: float,
+    lon: float,
+    *,
+    timezone: str = "Europe/Amsterdam",
+    timeout: float = 10,
+    retries: int = 3,
+    backoff: float = 2.0,
+    _sleep: Callable[[float], None] = time.sleep,
 ) -> Weather:
+    """Haal de weersverwachting van vandaag op, met retries bij tijdelijke fouten.
+
+    Bij een tijdelijke fout wordt maximaal `retries` keer opnieuw geprobeerd met
+    exponentiële backoff (backoff, 2×backoff, 4×backoff, ... seconden). De
+    `_sleep`-parameter bestaat voor tests.
+    """
     url = (
         "https://api.open-meteo.com/v1/forecast"
         f"?latitude={lat}&longitude={lon}"
@@ -89,14 +118,24 @@ def fetch_weather(
         f"&timezone={quote(timezone)}"
         "&forecast_days=1"
     )
-    resp = requests.get(url, timeout=timeout)
-    resp.raise_for_status()
-    d = resp.json()["daily"]
-    return Weather(
-        code=int(d["weathercode"][0]),
-        temp_max=float(d["temperature_2m_max"][0]),
-        temp_min=float(d["temperature_2m_min"][0]),
-        rain_sum=float(d["precipitation_sum"][0]),
-        wind_kmh=float(d["wind_speed_10m_max"][0]),
-        date=d["time"][0],
-    )
+    last_exc: requests.RequestException | None = None
+    for attempt in range(retries + 1):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            d = resp.json()["daily"]
+            return Weather(
+                code=int(d["weathercode"][0]),
+                temp_max=float(d["temperature_2m_max"][0]),
+                temp_min=float(d["temperature_2m_min"][0]),
+                rain_sum=float(d["precipitation_sum"][0]),
+                wind_kmh=float(d["wind_speed_10m_max"][0]),
+                date=d["time"][0],
+            )
+        except requests.RequestException as exc:
+            if not _is_retryable(exc) or attempt == retries:
+                raise
+            last_exc = exc
+            _sleep(backoff * (2**attempt))
+    # Onbereikbaar: de laatste poging heruitwerpt zelf. Voor de typechecker.
+    raise last_exc  # pragma: no cover

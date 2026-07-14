@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import os
-from datetime import datetime
+from datetime import date, datetime
 from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
@@ -94,12 +94,12 @@ def _fit_font(draw: ImageDraw.ImageDraw, text: str, max_w: int, sizes: list[int]
 # ---------------------------------------------------------------------------
 # Gedeelde onderdelen
 # ---------------------------------------------------------------------------
-def _draw_header(draw: ImageDraw.ImageDraw, weather: Weather, location_name: str) -> None:
+def _draw_header(draw: ImageDraw.ImageDraw, location_name: str, date_iso: str) -> None:
     f_tiny = load_font(11)
     f_big = load_font(18, bold=True)
     draw.rectangle([0, 0, IMG_W, 28], fill=ACCENT)
     draw.text((10, 6), f"Weer {location_name}", font=f_big, fill=(255, 255, 255))
-    date_str = _format_date(weather.date)
+    date_str = _format_date(date_iso)
     tw = draw.textlength(date_str, font=f_tiny)
     draw.text((IMG_W - tw - 8, 10), date_str, font=f_tiny, fill=(255, 220, 210))
 
@@ -107,32 +107,45 @@ def _draw_header(draw: ImageDraw.ImageDraw, weather: Weather, location_name: str
 # ---------------------------------------------------------------------------
 # Standaardweergave: weer + kledingadvies + aankomende datums
 # ---------------------------------------------------------------------------
+def _draw_no_weather(draw: ImageDraw.ImageDraw) -> None:
+    """Nette melding als de weersverwachting niet opgehaald kon worden."""
+    f_small = load_font(13)
+    f_med = load_font(18, bold=True)
+    draw.text((14, 44), "Weer even niet", font=f_med, fill=TEXT_DARK)
+    draw.text((14, 70), "beschikbaar", font=f_med, fill=TEXT_DARK)
+    draw.text((14, 98), "(verbinding mislukt)", font=f_small, fill=TEXT_LIGHT)
+
+
 def _draw_standard(
-    draw: ImageDraw.ImageDraw, weather: Weather, occurrences: list[Occurrence]
+    draw: ImageDraw.ImageDraw, weather: Weather | None, occurrences: list[Occurrence]
 ) -> None:
     f_small = load_font(13)
     f_med = load_font(15)
-    f_temp = load_font(44, bold=True)
-    desc = weather_description(weather.code)
-    advice = clothing_advice(weather.temp_max, weather.rain_sum, weather.wind_kmh)
 
-    # Temperatuur (links)
-    draw.text((12, 32), f"{weather.temp_max:.0f}°", font=f_temp, fill=TEMP_COLOR)
-    draw.text((14, 86), f"min {weather.temp_min:.0f}°", font=f_small, fill=TEXT_LIGHT)
+    if weather is None:
+        _draw_no_weather(draw)
+    else:
+        f_temp = load_font(44, bold=True)
+        desc = weather_description(weather.code)
+        advice = clothing_advice(weather.temp_max, weather.rain_sum, weather.wind_kmh)
 
-    # Weer (rechts)
-    draw.text((122, 38), desc, font=f_med, fill=TEXT_DARK)
-    draw.text((122, 64), f"Regen: {weather.rain_sum:.1f} mm", font=f_small, fill=TEXT_LIGHT)
-    draw.text((122, 84), f"Wind:  {weather.wind_kmh:.0f} km/u", font=f_small, fill=TEXT_LIGHT)
+        # Temperatuur (links)
+        draw.text((12, 32), f"{weather.temp_max:.0f}°", font=f_temp, fill=TEMP_COLOR)
+        draw.text((14, 86), f"min {weather.temp_min:.0f}°", font=f_small, fill=TEXT_LIGHT)
 
-    # Kledingadvies in twee kolommen
-    draw.line([(8, 110), (IMG_W - 8, 110)], fill=LINE_COLOR, width=1)
-    draw.text((10, 114), "Kleding kids:", font=f_med, fill=ACCENT)
-    col_x = (14, 168)
-    for i, line in enumerate(advice[:4]):
-        x = col_x[i // 2]
-        y = 136 + (i % 2) * 18
-        draw.text((x, y), f"- {line}", font=f_small, fill=TEXT_DARK)
+        # Weer (rechts)
+        draw.text((122, 38), desc, font=f_med, fill=TEXT_DARK)
+        draw.text((122, 64), f"Regen: {weather.rain_sum:.1f} mm", font=f_small, fill=TEXT_LIGHT)
+        draw.text((122, 84), f"Wind:  {weather.wind_kmh:.0f} km/u", font=f_small, fill=TEXT_LIGHT)
+
+        # Kledingadvies in twee kolommen
+        draw.line([(8, 110), (IMG_W - 8, 110)], fill=LINE_COLOR, width=1)
+        draw.text((10, 114), "Kleding kids:", font=f_med, fill=ACCENT)
+        col_x = (14, 168)
+        for i, line in enumerate(advice[:4]):
+            x = col_x[i // 2]
+            y = 136 + (i % 2) * 18
+            draw.text((x, y), f"- {line}", font=f_small, fill=TEXT_DARK)
 
     # Aankomend (alleen tonen als er iets is)
     if occurrences:
@@ -210,11 +223,12 @@ def _draw_garland(
         )
 
 
-def _draw_festive(draw: ImageDraw.ImageDraw, weather: Weather, birthdays: list[Occurrence]) -> None:
+def _draw_festive(
+    draw: ImageDraw.ImageDraw, weather: Weather | None, birthdays: list[Occurrence]
+) -> None:
     f_small = load_font(13)
     f_title = load_font(23, bold=True)
     f_line = load_font(16)
-    desc = weather_description(weather.code)
 
     # Slinger bovenaan: doorzakkend touwtje met vlaggetjes
     _draw_garland(draw, x0=10, x1=310, y_top=32, sag=16, n_flags=9)
@@ -244,24 +258,30 @@ def _draw_festive(draw: ImageDraw.ImageDraw, weather: Weather, birthdays: list[O
         age_line = "zijn vandaag jarig!"
     _center(draw, age_line, 154, f_line, TEXT_DARK)
 
-    # Slot + kleine weerregel als voetregel
+    # Slot + kleine weerregel als voetregel (alleen als het weer bekend is)
     _center(draw, "Hiep hiep hoera!", 180, f_line, ACCENT)
-    _center(draw, f"{weather.temp_max:.0f}°  ·  {desc}", 218, f_small, TEXT_LIGHT)
+    if weather is not None:
+        desc = weather_description(weather.code)
+        _center(draw, f"{weather.temp_max:.0f}°  ·  {desc}", 218, f_small, TEXT_LIGHT)
 
 
 # ---------------------------------------------------------------------------
 # Publieke entrypoint
 # ---------------------------------------------------------------------------
 def create_image(
-    weather: Weather,
+    weather: Weather | None,
     occurrences: list[Occurrence] | None,
     location_name: str,
+    today: date | None = None,
 ) -> bytes:
     occurrences = occurrences or []
     img = Image.new("RGB", (IMG_W, IMG_H), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
-    _draw_header(draw, weather, location_name)
+    # Datum voor de kop: uit het weer als dat er is, anders `today` (of vandaag),
+    # zodat de kop ook klopt als de weersverwachting niet opgehaald kon worden.
+    date_iso = weather.date if weather is not None else (today or date.today()).isoformat()
+    _draw_header(draw, location_name, date_iso)
 
     # Valt er vandaag een verjaardag? Dan feestmodus i.p.v. kledingadvies.
     birthdays_today = [o for o in occurrences if o.kind == "birthday" and o.days_until == 0]

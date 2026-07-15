@@ -35,10 +35,16 @@ gevoeligs in git.
 
 | Onderdeel | Bron |
 |-----------|------|
-| Weer | [Open-Meteo](https://open-meteo.com) — gratis, geen API-key |
+| Weer | [Open-Meteo](https://open-meteo.com) — gratis, geen API-key; retry bij een tijdelijke storing, en het bericht gaat door zónder weer als het definitief niet lukt |
 | Kledingadvies | Afgeleid van max-temp, neerslag en wind (zie tabel onderaan) |
 | Verjaardagen/activiteiten | JSON in env-vars |
 | Versturen | Lovebox GraphQL-API (`sendPixNote`) |
+
+> **Weer is best-effort.** Open-Meteo geeft af en toe kortstondig een fout
+> (bijv. een `503`). Daarom wordt de verwachting met een paar retries (met
+> oplopende wachttijd) opgehaald. Lukt het daarna nog niet, dan blokkeert dat
+> het dagbericht niet: het gaat door zónder weer (met een "Weer even niet
+> beschikbaar"-melding), zodat de verjaardagen/activiteiten alsnog verschijnen.
 
 ### Wat wordt er getoond aan datums?
 

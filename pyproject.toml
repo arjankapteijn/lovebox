@@ -4,23 +4,23 @@ version = "0.0.0"  # de echte versie komt uit de git-tag (docker-publish.yml)
 description = "Stuurt dagelijks weer, kledingadvies en aankomende verjaardagen/activiteiten naar een Lovebox"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 dependencies = [
-    "requests>=2.31,<3",
-    "Pillow>=10.3,<13",
+    "requests>=2.34,<3",
+    "Pillow>=13,<14",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8,<10",
-    "ruff>=0.6,<0.16",
+    "pytest>=9,<10",
+    "ruff>=0.17,<0.18",
 ]
 
 [project.scripts]
 lovebox = "lovebox.main:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

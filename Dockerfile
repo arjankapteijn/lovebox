@@ -1,8 +1,8 @@
 # ── Build ────────────────────────────────────────────────────────────────
 # Base op digest gepind: Dependabot (docker) opent dan een PR zodra
-# python:3.12-slim opnieuw is gebouwd, en de merge triggert een nieuw image
+# python:3.15-slim opnieuw is gebouwd, en de merge triggert een nieuw image
 # met de actuele Debian-patches.
-FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b AS build
+FROM python:3.15-slim@sha256:63bb298d2b7b88f176f51b5189f54ce6535c997682ea70885d2132f5d473a8a5 AS build
 WORKDIR /app
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
 COPY pyproject.toml ./
@@ -16,7 +16,7 @@ RUN pip install --prefix=/install .
 # tzdata (voor de Europe/Amsterdam scheduler). apt-get upgrade trekt
 # Debian-securityfixes mee die nog niet in het base-image zitten; pip is
 # runtime niet nodig en wordt verwijderd (scheelt CVE-meldingen).
-FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b
+FROM python:3.15-slim@sha256:63bb298d2b7b88f176f51b5189f54ce6535c997682ea70885d2132f5d473a8a5
 RUN apt-get update \
   && apt-get upgrade -y \
   && apt-get install -y --no-install-recommends fonts-dejavu-core tzdata \

@@ -25,7 +25,7 @@ updates:
           - "minor"
           - "patch"
 
-  # ── Docker base-image (python:3.12-slim) ─────────────────────────────
+  # ── Docker base-image (python:3.15-slim) ─────────────────────────────
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -39,7 +39,7 @@ updates:
       - "docker"
     commit-message:
       prefix: "docker"
-    # blijf op Python 3.12; geen PR's die naar een nieuwe minor duwen zonder
+    # blijf op Python 3.15; geen PR's die naar een nieuwe minor duwen zonder
     # dat je de CI-versie meebumpt. Haal dit weg als je dat wél wilt.
     ignore:
       - dependency-name: "python"

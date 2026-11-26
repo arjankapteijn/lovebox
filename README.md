@@ -15,7 +15,7 @@ gevoeligs in git.
 [![CI](https://github.com/arjankapteijn/lovebox/actions/workflows/ci.yml/badge.svg)](https://github.com/arjankapteijn/lovebox/actions/workflows/ci.yml)
 [![Publish Docker image](https://github.com/arjankapteijn/lovebox/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/arjankapteijn/lovebox/actions/workflows/docker-publish.yml)
 [![Versie](https://img.shields.io/github/v/tag/arjankapteijn/lovebox?sort=semver&label=versie&logo=github)](https://github.com/arjankapteijn/lovebox/tags)
-![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.15-3776AB?logo=python&logoColor=white)
 ![Pillow](https://img.shields.io/badge/Pillow-imaging-11557C)
 ![pytest](https://img.shields.io/badge/pytest-tested-0A9EDC?logo=pytest&logoColor=white)
 ![Ruff](https://img.shields.io/badge/lint-ruff-D7FF64?logo=ruff&logoColor=black)
